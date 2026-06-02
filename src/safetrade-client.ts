@@ -1,5 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
-import { TickerResponse } from './types';
+import * as crypto from 'crypto';
+import { TickerResponse, AccountBalance } from './types';
 
 const SAFETRADE_BASE_URL = 'https://safetrade.com';
 
@@ -60,6 +61,35 @@ export class SafeTradeClient {
    */
   async getAllTickers(): Promise<Record<string, { at: number; ticker: TickerResponse['ticker'] }>> {
     const response = await this.http.get('/api/v2/peatio/public/markets/tickers');
+    return response.data;
+  }
+
+  /**
+   * Lấy số dư tài khoản
+   * GET /api/v2/peatio/account/balances
+   */
+  async getBalances(): Promise<AccountBalance[]> {
+    const apiKey = process.env.SAFETRADE_API_KEY;
+    const secretKey = process.env.SAFETRADE_SECRET_KEY;
+
+    if (!apiKey || !secretKey) {
+      throw new Error("Chưa cấu hình SAFETRADE_API_KEY hoặc SAFETRADE_SECRET_KEY trong .env");
+    }
+
+    const nonce = Date.now().toString();
+    const signature = crypto
+      .createHmac('sha256', secretKey)
+      .update(nonce + apiKey)
+      .digest('hex');
+
+    const response = await this.http.get<AccountBalance[]>('/api/v2/peatio/account/balances', {
+      headers: {
+        'X-Auth-Apikey': apiKey,
+        'X-Auth-Nonce': nonce,
+        'X-Auth-Signature': signature
+      }
+    });
+
     return response.data;
   }
 }

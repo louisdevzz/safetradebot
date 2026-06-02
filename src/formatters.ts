@@ -6,6 +6,7 @@ import {
   PrlScanAddressInfo,
   PrlScanTxsResponse,
   PrlScanActivityResponse,
+  AccountBalance,
 } from './types';
 
 /**
@@ -447,6 +448,33 @@ export function formatWalletActivityMessage(address: string, activityData: PrlSc
     `👛 Địa chỉ: \`${shortWalletAddress(address)}\`\n\n` +
     finalSection + '\n\n' +
     `🔗 [Xem trên PearlHash Explorer](https://explorer.pearlhash.xyz/address/${address})\n` +
+    `🕐 _${new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}_`
+  );
+}
+
+/**
+ * Format số dư trên sàn SafeTrade
+ */
+export function formatExchangeBalanceMessage(balances: AccountBalance[]): string {
+  // Lọc chỉ lấy PRL và USDT như yêu cầu của user
+  const prlBalance = balances.find(b => b.currency.toLowerCase() === 'prl');
+  const usdtBalance = balances.find(b => b.currency.toLowerCase() === 'usdt');
+
+  // Xử lý hiển thị
+  const prlTotal = prlBalance ? parseFloat(prlBalance.balance) + parseFloat(prlBalance.locked) : 0;
+  const usdtTotal = usdtBalance ? parseFloat(usdtBalance.balance) + parseFloat(usdtBalance.locked) : 0;
+
+  return (
+    `🏦 *SafeTrade Balances*\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    `💎 *PRL:*\n` +
+    `  ├ Khả dụng: \`${prlBalance ? prlBalance.balance : '0'}\`\n` +
+    `  ├ Đang khóa: \`${prlBalance ? prlBalance.locked : '0'}\`\n` +
+    `  └ Tổng: \`${prlTotal.toFixed(4)}\`\n\n` +
+    `💵 *USDT:*\n` +
+    `  ├ Khả dụng: \`${usdtBalance ? usdtBalance.balance : '0'}\`\n` +
+    `  ├ Đang khóa: \`${usdtBalance ? usdtBalance.locked : '0'}\`\n` +
+    `  └ Tổng: \`${usdtTotal.toFixed(4)}\`\n\n` +
     `🕐 _${new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}_`
   );
 }

@@ -18,6 +18,12 @@ export interface TickerResponse {
   ticker: TickerData;
 }
 
+export interface AccountBalance {
+  currency: string;
+  balance: string;
+  locked: string;
+}
+
 export interface WebSocketMessage {
   data?: {
     market?: string;

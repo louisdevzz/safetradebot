@@ -16,6 +16,7 @@ import {
   formatWalletInfoMessage,
   formatWalletTxsMessage,
   formatWalletActivityMessage,
+  formatExchangeBalanceMessage,
   formatPrice,
   parsePrice,
   normalizeMarketId,
@@ -141,6 +142,9 @@ bot.help(async (ctx) => {
     `• /wallet — Xem số dư, tổng nhận/gửi\n` +
     `• /wallet_txs — Xem 10 giao dịch gần nhất\n` +
     `• /wallet_activity — Xem hoạt động ví 7 ngày qua\n\n` +
+
+    `💼 *Sàn Giao Dịch (SafeTrade):*\n` +
+    `• /balance — Xem số dư PRL và USDT trên sàn\n\n` +
 
     `💡 *Mẹo:*\n` +
     `• Cảnh báo giá tự động xóa sau khi kích hoạt\n` +
@@ -597,6 +601,31 @@ bot.command("wallet_activity", async (ctx) => {
 });
 
 // =========================================
+// /balance command - Xem số dư trên SafeTrade
+// =========================================
+bot.command("balance", async (ctx) => {
+  const loadingMsg = await ctx.reply("⏳ Đang lấy số dư từ SafeTrade...");
+  try {
+    const balances = await safeTradeClient.getBalances();
+    await ctx.telegram.editMessageText(
+      ctx.chat.id,
+      loadingMsg.message_id,
+      undefined,
+      formatExchangeBalanceMessage(balances),
+      { parse_mode: "Markdown" }
+    );
+  } catch (error) {
+    const errMsg = error instanceof Error ? error.message : String(error);
+    await ctx.telegram.editMessageText(
+      ctx.chat.id,
+      loadingMsg.message_id,
+      undefined,
+      `❌ Lỗi kết nối SafeTrade: ${errMsg}`
+    );
+  }
+});
+
+// =========================================
 // Callback Queries (Inline Buttons)
 // =========================================
 bot.action("refresh_price", async (ctx) => {
@@ -932,6 +961,7 @@ async function main(): Promise<void> {
       { command: "wallet", description: "Xem số dư ví Pearl" },
       { command: "wallet_txs", description: "Xem giao dịch ví gần nhất" },
       { command: "wallet_activity", description: "Xem hoạt động ví 7 ngày qua" },
+      { command: "balance", description: "Xem số dư PRL/USDT trên SafeTrade" },
       { command: "setmining", description: "Cài địa chỉ mining của bạn" },
       { command: "watch", description: "Bật thông báo giá tự động" },
       { command: "unwatch", description: "Tắt thông báo giá tự động" },
