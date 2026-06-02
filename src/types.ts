@@ -66,6 +66,49 @@ export interface UserSubscription {
 }
 
 // =========================================
+// SaladCloud API Types
+// =========================================
+
+export interface SaladGpuClass {
+  id: string;
+  name: string;
+  prices?: Array<{ price: string }>;
+  gpu_count?: number;
+  is_high_demand?: boolean;
+  max_ram?: number;
+  max_storage?: number;
+  max_vcpu?: number;
+  min_ram?: number;
+  min_storage?: number;
+  min_vcpu?: number;
+}
+
+export interface SaladGpuClassesResponse {
+  items: SaladGpuClass[];
+}
+
+export interface SaladGpuAvailabilityRequest {
+  gpu_classes: string[];
+  country_codes?: string[];
+  cpu?: number | null;
+  memory?: number | null;
+  storage_amount?: number | null;
+}
+
+export interface SaladGpuAvailability {
+  available_gpu_batch: number;
+  available_gpu_high: number;
+  available_gpu_low: number;
+  available_gpu_medium: number;
+  on_call_gpu: number;
+}
+
+export interface SaladGpuAvailabilityItem {
+  gpuClass: SaladGpuClass;
+  availability: SaladGpuAvailability;
+}
+
+// =========================================
 // Bot State Types
 // =========================================
 

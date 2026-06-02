@@ -8,6 +8,7 @@ Bot Telegram theo dõi giá **PRL/USDT** realtime trên [SafeTrade](https://safe
 - 🔔 **Theo dõi tự động** - Nhận thông báo giá định kỳ (1-60 phút)
 - ⚠️ **Cảnh báo thông minh** - Đặt ngưỡng giá cảnh báo tự động
 - 🔄 **Làm mới tại chỗ** - Button inline làm mới không cần gõ lệnh
+- 🥗 **SaladCloud GPU** - Xem GPU nào đang sẵn sàng cho tổ chức
 - 🌐 **WebSocket + REST** - Dùng WS realtime, backup bằng polling
 
 ## 📦 Cài đặt
@@ -56,6 +57,7 @@ pnpm start
 | `/alert below 0.03` | Cảnh báo khi giá < 0.03 USDT |
 | `/alerts` | Xem danh sách cảnh báo |
 | `/delalert <id>` | Xóa cảnh báo theo ID |
+| `/gpu` | Xem GPU SaladCloud nào đang sẵn sàng cho tổ chức louisa |
 | `/help` | Hướng dẫn chi tiết |
 
 ## 🏗️ Cấu trúc dự án
@@ -88,6 +90,16 @@ pnpm typecheck    # Kiểm tra TypeScript
 Bot sử dụng endpoint công khai (không cần API key):
 - `GET /api/v2/peatio/public/markets/{market}/tickers` - Lấy ticker
 - WebSocket: `wss://safetrade.com/cable` - Realtime updates
+
+## 🥗 API SaladCloud
+
+Lệnh `/gpu` cần cấu hình:
+- `SALAD_API_KEY` - SaladCloud API key
+- `SALAD_ORGANIZATION_NAME` - mặc định `louisa`
+
+Bot gọi các endpoint kỹ thuật:
+- `GET /api/public/organizations/{organization_name}/gpu-classes`
+- `POST /api/public/organizations/{organization_name}/availability/sce-gpu-availability`
 
 ## 📝 License
 

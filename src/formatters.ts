@@ -7,6 +7,7 @@ import {
   PrlScanTxsResponse,
   PrlScanActivityResponse,
   AccountBalance,
+  SaladGpuAvailabilityItem,
 } from './types';
 
 /**
@@ -475,6 +476,68 @@ export function formatExchangeBalanceMessage(balances: AccountBalance[]): string
     `  ├ Khả dụng: \`${usdtBalance ? usdtBalance.balance : '0'}\`\n` +
     `  ├ Đang khóa: \`${usdtBalance ? usdtBalance.locked : '0'}\`\n` +
     `  └ Tổng: \`${usdtTotal.toFixed(4)}\`\n\n` +
+    `🕐 _${new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}_`
+  );
+}
+
+// =========================================
+// SaladCloud Formatters
+// =========================================
+
+function totalAvailableGpu(item: SaladGpuAvailabilityItem): number {
+  const availability = item.availability;
+  return (
+    availability.available_gpu_batch +
+    availability.available_gpu_high +
+    availability.available_gpu_low +
+    availability.available_gpu_medium +
+    availability.on_call_gpu
+  );
+}
+
+/**
+ * Format danh sách GPU đang sẵn sàng trên SaladCloud.
+ */
+export function formatSaladGpuAvailabilityMessage(
+  organizationName: string,
+  items: SaladGpuAvailabilityItem[],
+): string {
+  const availableItems = items
+    .filter((item) => totalAvailableGpu(item) > 0)
+    .sort((a, b) => totalAvailableGpu(b) - totalAvailableGpu(a));
+
+  if (availableItems.length === 0) {
+    return (
+      `🥗 *Tình trạng GPU SaladCloud*\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `🏢 Tổ chức: \`${organizationName}\`\n\n` +
+      `❌ Hiện chưa thấy nhóm GPU nào có máy sẵn sàng.\n\n` +
+      `🕐 _${new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}_`
+    );
+  }
+
+  const gpuSection = availableItems.slice(0, 20).map((item) => {
+    const availability = item.availability;
+    return (
+      `🎮 *${item.gpuClass.name}*\n` +
+      `  ├ Ưu tiên thấp/vừa/cao: \`${availability.available_gpu_low}/${availability.available_gpu_medium}/${availability.available_gpu_high}\`\n` +
+      `  ├ Chạy theo lô: \`${availability.available_gpu_batch}\`\n` +
+      `  └ Máy đang trực: \`${availability.on_call_gpu}\``
+    );
+  }).join('\n\n');
+
+  const moreText = availableItems.length > 20
+    ? `\n\n_Đang hiển thị 20/${availableItems.length} nhóm GPU có máy sẵn sàng._`
+    : '';
+
+  return (
+    `🥗 *Tình trạng GPU SaladCloud*\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    `🏢 Tổ chức: \`${organizationName}\`\n` +
+    `✅ Nhóm GPU có máy sẵn sàng: \`${availableItems.length}/${items.length}\`\n\n` +
+    gpuSection +
+    moreText + '\n\n' +
+    `_Chú thích: “máy đang trực” là số máy SaladCloud báo đang có thể nhận việc._\n` +
     `🕐 _${new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}_`
   );
 }

@@ -82,15 +82,39 @@ export class SafeTradeClient {
       .update(nonce + apiKey)
       .digest('hex');
 
-    const response = await this.http.get<AccountBalance[]>('/api/v2/peatio/account/balances', {
-      headers: {
-        'X-Auth-Apikey': apiKey,
-        'X-Auth-Nonce': nonce,
-        'X-Auth-Signature': signature
-      }
-    });
+    const headers = {
+      'X-Auth-Apikey': apiKey,
+      'X-Auth-Nonce': nonce,
+      'X-Auth-Signature': signature
+    };
 
-    return response.data;
+    const endpoint = '/api/v2/trade/balances';
+    try {
+      console.log(`[SafeTrade] Gọi endpoint: ${endpoint}`);
+      const response = await this.http.get(endpoint, { headers });
+      
+      // Tùy thuộc vào cấu trúc trả về, xử lý lấy danh sách AccountBalance
+      if (Array.isArray(response.data)) {
+        return response.data as AccountBalance[];
+      }
+      if (response.data && Array.isArray(response.data.accounts)) {
+        return response.data.accounts as AccountBalance[];
+      }
+      return []; // Fallback
+    } catch (err: any) {
+      const status = err.response?.status;
+      const errorData = err.response?.data;
+      console.log(`[SafeTrade] Lỗi ${status}:`, errorData);
+      
+      if (status === 401) {
+        if (errorData?.errors?.includes('authz.invalid_permission')) {
+          throw new Error("API Key không có quyền (Permission). Hãy vào sàn cấp quyền 'Read Balance' hoặc 'Trade' cho API Key.");
+        }
+        throw new Error("API Key hoặc Secret Key không chính xác (Lỗi 401).");
+      }
+      
+      throw new Error(err.message || "Lỗi không xác định");
+    }
   }
 }
 

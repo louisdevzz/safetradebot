@@ -4,6 +4,7 @@ import { message } from "telegraf/filters";
 import { safeTradeClient } from "./safetrade-client";
 import { pearlHashClient } from "./pearlhash-client";
 import { prlScanClient } from "./prlscan-client";
+import { saladCloudClient } from "./saladcloud-client";
 import { AlertManager } from "./alert-manager";
 import { SafeTradeWebSocket, TickerUpdateEvent } from "./safetrade-ws";
 import {
@@ -17,6 +18,7 @@ import {
   formatWalletTxsMessage,
   formatWalletActivityMessage,
   formatExchangeBalanceMessage,
+  formatSaladGpuAvailabilityMessage,
   formatPrice,
   parsePrice,
   normalizeMarketId,
@@ -104,6 +106,7 @@ bot.start(async (ctx) => {
     `🏦 /wallet — Xem số dư ví Pearl\n` +
     `📋 /payouts — Xem lịch sử giao dịch mining\n` +
     `⚙️ /setmining — Cài địa chỉ mining của bạn\n` +
+    `🥗 /gpu — Xem GPU SaladCloud nào đang sẵn sàng\n` +
     `🔹 /help — Hướng dẫn sử dụng\n\n` +
     `_Nhấn /price để bắt đầu!_`
   );
@@ -145,6 +148,9 @@ bot.help(async (ctx) => {
 
     `💼 *Sàn Giao Dịch (SafeTrade):*\n` +
     `• /balance — Xem số dư PRL và USDT trên sàn\n\n` +
+
+    `🥗 *SaladCloud:*\n` +
+    `• /gpu — Xem nhóm GPU nào đang có máy sẵn sàng cho tổ chức louisa\n\n` +
 
     `💡 *Mẹo:*\n` +
     `• Cảnh báo giá tự động xóa sau khi kích hoạt\n` +
@@ -626,6 +632,40 @@ bot.command("balance", async (ctx) => {
 });
 
 // =========================================
+// /gpu command - Xem tình trạng GPU SaladCloud
+// =========================================
+bot.command("gpu", async (ctx) => {
+  const organizationName = saladCloudClient.configuredOrganizationName;
+  const loadingMsg = await ctx.reply(
+    `⏳ Đang kiểm tra GPU SaladCloud cho tổ chức ${organizationName}...`,
+  );
+
+  try {
+    const items = await saladCloudClient.getAvailabilityByGpuClass();
+    await ctx.telegram.editMessageText(
+      ctx.chat.id,
+      loadingMsg.message_id,
+      undefined,
+      formatSaladGpuAvailabilityMessage(organizationName, items),
+      {
+        parse_mode: "Markdown",
+        reply_markup: Markup.inlineKeyboard([
+          [Markup.button.callback("🔄 Làm mới", "refresh_gpu_availability")],
+        ]).reply_markup,
+      },
+    );
+  } catch (error) {
+    const errMsg = error instanceof Error ? error.message : String(error);
+    await ctx.telegram.editMessageText(
+      ctx.chat.id,
+      loadingMsg.message_id,
+      undefined,
+      `❌ Không thể lấy tình trạng GPU SaladCloud.\nLỗi: ${errMsg}\n\nVui lòng kiểm tra SALAD_API_KEY trong .env.`,
+    );
+  }
+});
+
+// =========================================
 // Callback Queries (Inline Buttons)
 // =========================================
 bot.action("refresh_price", async (ctx) => {
@@ -744,6 +784,23 @@ bot.action("refresh_mining", async (ctx) => {
     });
   } catch {
     await ctx.answerCbQuery("❌ Lỗi khi làm mới dữ liệu mining");
+  }
+});
+
+bot.action("refresh_gpu_availability", async (ctx) => {
+  await ctx.answerCbQuery("Đang cập nhật...");
+  const organizationName = saladCloudClient.configuredOrganizationName;
+
+  try {
+    const items = await saladCloudClient.getAvailabilityByGpuClass();
+    await ctx.editMessageText(formatSaladGpuAvailabilityMessage(organizationName, items), {
+      parse_mode: "Markdown",
+      reply_markup: Markup.inlineKeyboard([
+        [Markup.button.callback("🔄 Làm mới", "refresh_gpu_availability")],
+      ]).reply_markup,
+    });
+  } catch {
+    await ctx.answerCbQuery("❌ Lỗi khi làm mới tình trạng GPU");
   }
 });
 
@@ -962,6 +1019,7 @@ async function main(): Promise<void> {
       { command: "wallet_txs", description: "Xem giao dịch ví gần nhất" },
       { command: "wallet_activity", description: "Xem hoạt động ví 7 ngày qua" },
       { command: "balance", description: "Xem số dư PRL/USDT trên SafeTrade" },
+      { command: "gpu", description: "Xem GPU SaladCloud đang sẵn sàng" },
       { command: "setmining", description: "Cài địa chỉ mining của bạn" },
       { command: "watch", description: "Bật thông báo giá tự động" },
       { command: "unwatch", description: "Tắt thông báo giá tự động" },
