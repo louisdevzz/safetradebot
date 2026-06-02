@@ -654,13 +654,21 @@ bot.command("gpu", async (ctx) => {
         ]).reply_markup,
       },
     );
-  } catch (error) {
-    const errMsg = error instanceof Error ? error.message : String(error);
+  } catch (error: any) {
+    let errMsg = error instanceof Error ? error.message : String(error);
+    if (error.code === 'ECONNABORTED') {
+      errMsg = "Hết thời gian chờ (timeout). API SaladCloud phản hồi quá chậm hoặc kết nối mạng có vấn đề.";
+    } else if (error.response) {
+      errMsg = `Lỗi HTTP ${error.response.status}: ${error.response.statusText || error.response.data?.message || 'Không rõ nguyên nhân'}`;
+    } else if (error.request) {
+      errMsg = "Không thể kết nối đến SaladCloud API. Vui lòng kiểm tra kết nối mạng.";
+    }
+    
     await ctx.telegram.editMessageText(
       ctx.chat.id,
       loadingMsg.message_id,
       undefined,
-      `❌ Không thể lấy tình trạng GPU SaladCloud.\nLỗi: ${errMsg}\n\nVui lòng kiểm tra SALAD_API_KEY trong .env.`,
+      `❌ Không thể lấy tình trạng GPU SaladCloud.\nLỗi: ${errMsg}\n\nVui lòng kiểm tra lại SALAD_API_KEY trong .env (đảm bảo không có khoảng trắng thừa) và kết nối mạng.`,
     );
   }
 });
