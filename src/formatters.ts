@@ -1,4 +1,12 @@
-import { TickerData, MiningAccountData, ConnectedWorker, BalanceTransaction } from './types';
+import {
+  TickerData,
+  MiningAccountData,
+  ConnectedWorker,
+  BalanceTransaction,
+  PrlScanAddressInfo,
+  PrlScanTxsResponse,
+  PrlScanActivityResponse,
+} from './types';
 
 /**
  * Format giá với số thập phân phù hợp
@@ -329,3 +337,116 @@ export function formatPayoutsMessage(address: string, data: MiningAccountData): 
   );
 }
 
+// =========================================
+// Wallet & PRLScan Formatters
+// =========================================
+
+/**
+ * Đổi grains sang PRL (1 PRL = 100,000,000 grains)
+ */
+export function formatGrainsToPRL(grains: number): string {
+  const prl = grains / 100_000_000;
+  return prl.toFixed(4); // Lấy 4 số thập phân cho gọn
+}
+
+/**
+ * Rút gọn địa chỉ ví
+ */
+export function shortWalletAddress(address: string): string {
+  return `${address.slice(0, 10)}...${address.slice(-8)}`;
+}
+
+/**
+ * Format thông tin số dư /wallet
+ */
+export function formatWalletInfoMessage(info: PrlScanAddressInfo): string {
+  const balance = formatGrainsToPRL(info.balance_grains);
+  const totalReceived = formatGrainsToPRL(info.received_grains);
+  const totalSent = formatGrainsToPRL(info.sent_grains);
+  
+  return (
+    `🏦 *Wallet Thông Tin*\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    `👛 Địa chỉ: \`${shortWalletAddress(info.address)}\`\n\n` +
+    `💰 *Số dư:* \`${balance} PRL\`\n\n` +
+    `📊 *Thống kê tổng quan:*\n` +
+    `├ 📥 Đã nhận: \`${totalReceived} PRL\` (${info.transfer_in_tx_count} lần)\n` +
+    `├ 📤 Đã gửi: \`${totalSent} PRL\` (${info.transfer_out_tx_count} lần)\n` +
+    `└ 🔄 Tổng giao dịch: \`${info.tx_count}\`\n\n` +
+    `🔗 [Xem trên PearlHash Explorer](https://explorer.pearlhash.xyz/address/${info.address})\n` +
+    `🕐 _${new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}_`
+  );
+}
+
+/**
+ * Format danh sách giao dịch /wallet_txs
+ */
+export function formatWalletTxsMessage(address: string, txsData: PrlScanTxsResponse): string {
+  if (txsData.items.length === 0) {
+    return `📋 *Giao dịch gần nhất*\n━━━━━━━━━━━━━━━━━━━━\n❌ Chưa có giao dịch nào.`;
+  }
+
+  // Lấy tối đa 10 giao dịch
+  const txsSection = txsData.items.slice(0, 10).map(tx => {
+    // Nếu nhận > gửi thì là giao dịch nhận (+), ngược lại là gửi (-)
+    const isReceive = tx.delta_grains > 0;
+    const emoji = isReceive ? '📥' : '📤';
+    const sign = isReceive ? '+' : '-';
+    const amountPrl = formatGrainsToPRL(Math.abs(tx.delta_grains));
+    const date = new Date(tx.time).toLocaleString('vi-VN', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      day: '2-digit', month: '2-digit',
+      hour: '2-digit', minute: '2-digit'
+    });
+    
+    // Label type nếu có, không thì là 'Chuyển tiền'
+    const label = tx.type_label || (isReceive ? 'Nhận tiền' : 'Gửi tiền');
+
+    return `${emoji} \`${sign}${amountPrl} PRL\` · ${label} · _${date}_`;
+  }).join('\n');
+
+  return (
+    `📋 *Giao dịch gần nhất (Max 10)*\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    `👛 Địa chỉ: \`${shortWalletAddress(address)}\`\n\n` +
+    txsSection + '\n\n' +
+    `🔗 [Xem trên PearlHash Explorer](https://explorer.pearlhash.xyz/address/${address})\n` +
+    `🕐 _${new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}_`
+  );
+}
+
+/**
+ * Format biểu đồ / hoạt động 7 ngày qua /wallet_activity
+ */
+export function formatWalletActivityMessage(address: string, activityData: PrlScanActivityResponse): string {
+  if (activityData.items.length === 0) {
+    return `📉 *Hoạt động ví 7 ngày qua*\n━━━━━━━━━━━━━━━━━━━━\n❌ Không có dữ liệu hoạt động.`;
+  }
+
+  const actSection = activityData.items.map(item => {
+    // Chỉ lấy ngày tháng cho ngắn
+    const dateStr = item.time.substring(5, 10); // Lấy MM-DD từ YYYY-MM-DD
+    const receivedPrl = formatGrainsToPRL(item.transfer_in_grains + item.mined_grains);
+    const sentPrl = formatGrainsToPRL(item.sent_grains);
+    
+    // Nếu không có hoạt động thì trả về null để filter sau
+    if (item.transfer_in_grains === 0 && item.sent_grains === 0 && item.mined_grains === 0) {
+      return null;
+    }
+
+    return `📅 \`${dateStr}\` | Nhận: \`${receivedPrl}\` | Gửi: \`${sentPrl}\``;
+  }).filter(line => line !== null);
+
+  const finalSection = actSection.length > 0 
+    ? actSection.join('\n') 
+    : '_Không có hoạt động nào trong 7 ngày qua._';
+
+  return (
+    `📉 *Hoạt động ví (7 ngày)*\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    `👛 Địa chỉ: \`${shortWalletAddress(address)}\`\n\n` +
+    finalSection + '\n\n' +
+    `🔗 [Xem trên PearlHash Explorer](https://explorer.pearlhash.xyz/address/${address})\n` +
+    `🕐 _${new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}_`
+  );
+}

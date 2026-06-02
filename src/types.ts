@@ -110,3 +110,53 @@ export interface MiningAccountData {
   balance_transactions: BalanceTransaction[];
   pending_rewards: PendingRewards;
 }
+
+// =========================================
+// PRLScan API Types
+// =========================================
+
+export interface PrlScanAddressInfo {
+  address: string;
+  balance_grains: number;
+  mined_grains: number;
+  blocks_mined: number;
+  received_grains: number;
+  external_received_grains: number;
+  transfer_in_tx_count: number;
+  sent_grains: number;
+  external_sent_grains: number;
+  transfer_out_tx_count: number;
+  tx_count: number;
+  first_seen_at: string;
+  last_seen_at: string;
+}
+
+export interface PrlScanTxItem {
+  txid: string;
+  block_height: number;
+  time: string;
+  received_grains: number;
+  sent_grains: number;
+  delta_grains: number;
+  fee_grains: number;
+  status: string;
+  type_label?: string; // Ví dụ: "Pool payout", "Batch payout"
+}
+
+export interface PrlScanTxsResponse {
+  items: PrlScanTxItem[];
+}
+
+export interface PrlScanActivityItem {
+  time: string;
+  mined_grains: number;
+  transfer_in_grains: number;
+  sent_grains: number;
+}
+
+export interface PrlScanActivityResponse {
+  address: string;
+  bucket: string;
+  days: number;
+  items: PrlScanActivityItem[];
+}

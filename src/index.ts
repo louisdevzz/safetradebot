@@ -3,6 +3,7 @@ import { Telegraf, Context, Markup } from "telegraf";
 import { message } from "telegraf/filters";
 import { safeTradeClient } from "./safetrade-client";
 import { pearlHashClient } from "./pearlhash-client";
+import { prlScanClient } from "./prlscan-client";
 import { AlertManager } from "./alert-manager";
 import { SafeTradeWebSocket, TickerUpdateEvent } from "./safetrade-ws";
 import {
@@ -12,6 +13,9 @@ import {
   formatWorkersMessage,
   formatPendingRewardsMessage,
   formatPayoutsMessage,
+  formatWalletInfoMessage,
+  formatWalletTxsMessage,
+  formatWalletActivityMessage,
   formatPrice,
   parsePrice,
   normalizeMarketId,
@@ -96,9 +100,8 @@ bot.start(async (ctx) => {
     `🔹 /alerts — Xem danh sách cảnh báo\n` +
     `🔹 /delalert — Xóa cảnh báo\n` +
     `⛏️ /mining — Xem tổng quan mining PearlHash\n` +
-    `🖥️ /workers — Xem chi tiết worker & GPU\n` +
-    `⏳ /rewards — Xem phần thưởng đang chờ\n` +
-    `📋 /payouts — Xem lịch sử giao dịch\n` +
+    `🏦 /wallet — Xem số dư ví Pearl\n` +
+    `📋 /payouts — Xem lịch sử giao dịch mining\n` +
     `⚙️ /setmining — Cài địa chỉ mining của bạn\n` +
     `🔹 /help — Hướng dẫn sử dụng\n\n` +
     `_Nhấn /price để bắt đầu!_`
@@ -134,9 +137,15 @@ bot.help(async (ctx) => {
     `• /setmining <địa_chỉ> — Cài địa chỉ PRL mining của bạn\n` +
     `  Ví dụ: \`/setmining prl1abc...xyz\`\n\n` +
 
+    `🏦 *Theo dõi Ví (PRLScan):*\n` +
+    `• /wallet — Xem số dư, tổng nhận/gửi\n` +
+    `• /wallet_txs — Xem 10 giao dịch gần nhất\n` +
+    `• /wallet_activity — Xem hoạt động ví 7 ngày qua\n\n` +
+
     `💡 *Mẹo:*\n` +
     `• Cảnh báo giá tự động xóa sau khi kích hoạt\n` +
     `• Địa chỉ mining được lưu cho mỗi người dùng riêng\n` +
+    `• Lệnh /wallet dùng chung địa chỉ với /setmining\n` +
     `• Dùng nút 🔄 trên tin nhắn để làm mới dữ liệu`
   );
 });
@@ -522,6 +531,72 @@ bot.command("payouts", async (ctx) => {
 });
 
 // =========================================
+// /wallet command - Xem thông tin ví PRLScan
+// =========================================
+bot.command("wallet", async (ctx) => {
+  const chatId = ctx.chat.id;
+  const address = miningAddresses.get(chatId) || DEFAULT_MINING_ADDRESS;
+
+  if (!address) {
+    await ctx.replyWithMarkdown(`🏦 *Chưa cài địa chỉ ví!*\nDùng: \`/setmining prl1...\``);
+    return;
+  }
+
+  const loadingMsg = await ctx.reply("⏳ Đang lấy thông tin ví từ PRLScan...");
+  try {
+    const data = await prlScanClient.getAddressInfo(address);
+    await ctx.telegram.editMessageText(ctx.chat.id, loadingMsg.message_id, undefined, formatWalletInfoMessage(data), { parse_mode: "Markdown" });
+  } catch (error) {
+    const errMsg = error instanceof Error ? error.message : String(error);
+    await ctx.telegram.editMessageText(ctx.chat.id, loadingMsg.message_id, undefined, `❌ Lỗi PRLScan: ${errMsg}`);
+  }
+});
+
+// =========================================
+// /wallet_txs command - Xem giao dịch ví
+// =========================================
+bot.command("wallet_txs", async (ctx) => {
+  const chatId = ctx.chat.id;
+  const address = miningAddresses.get(chatId) || DEFAULT_MINING_ADDRESS;
+
+  if (!address) {
+    await ctx.replyWithMarkdown(`🏦 *Chưa cài địa chỉ ví!*\nDùng: \`/setmining prl1...\``);
+    return;
+  }
+
+  const loadingMsg = await ctx.reply("⏳ Đang lấy lịch sử giao dịch ví...");
+  try {
+    const data = await prlScanClient.getTransactions(address, 10);
+    await ctx.telegram.editMessageText(ctx.chat.id, loadingMsg.message_id, undefined, formatWalletTxsMessage(address, data), { parse_mode: "Markdown" });
+  } catch (error) {
+    const errMsg = error instanceof Error ? error.message : String(error);
+    await ctx.telegram.editMessageText(ctx.chat.id, loadingMsg.message_id, undefined, `❌ Lỗi PRLScan: ${errMsg}`);
+  }
+});
+
+// =========================================
+// /wallet_activity command - Xem biểu đồ hoạt động
+// =========================================
+bot.command("wallet_activity", async (ctx) => {
+  const chatId = ctx.chat.id;
+  const address = miningAddresses.get(chatId) || DEFAULT_MINING_ADDRESS;
+
+  if (!address) {
+    await ctx.replyWithMarkdown(`🏦 *Chưa cài địa chỉ ví!*\nDùng: \`/setmining prl1...\``);
+    return;
+  }
+
+  const loadingMsg = await ctx.reply("⏳ Đang lấy hoạt động ví 7 ngày qua...");
+  try {
+    const data = await prlScanClient.getActivity(address, "day", 7);
+    await ctx.telegram.editMessageText(ctx.chat.id, loadingMsg.message_id, undefined, formatWalletActivityMessage(address, data), { parse_mode: "Markdown" });
+  } catch (error) {
+    const errMsg = error instanceof Error ? error.message : String(error);
+    await ctx.telegram.editMessageText(ctx.chat.id, loadingMsg.message_id, undefined, `❌ Lỗi PRLScan: ${errMsg}`);
+  }
+});
+
+// =========================================
 // Callback Queries (Inline Buttons)
 // =========================================
 bot.action("refresh_price", async (ctx) => {
@@ -853,7 +928,10 @@ async function main(): Promise<void> {
       { command: "mining", description: "Xem tổng quan PearlHash mining" },
       { command: "workers", description: "Xem chi tiết worker & GPU" },
       { command: "rewards", description: "Xem phần thưởng đang chờ" },
-      { command: "payouts", description: "Xem lịch sử giao dịch" },
+      { command: "payouts", description: "Xem lịch sử giao dịch mining" },
+      { command: "wallet", description: "Xem số dư ví Pearl" },
+      { command: "wallet_txs", description: "Xem giao dịch ví gần nhất" },
+      { command: "wallet_activity", description: "Xem hoạt động ví 7 ngày qua" },
       { command: "setmining", description: "Cài địa chỉ mining của bạn" },
       { command: "watch", description: "Bật thông báo giá tự động" },
       { command: "unwatch", description: "Tắt thông báo giá tự động" },
